@@ -9,9 +9,18 @@ namespace StudyAPI.Controllers
     [ApiController]
     public class VillaAPIController : ControllerBase
     {
+        public ILogger<VillaAPIController> _logger { get; }
+
+        public VillaAPIController(ILogger<VillaAPIController> logger)
+        {
+            _logger = logger;
+        }
+
+
         [HttpGet]
         public ActionResult<IEnumerable<VillaDTO>> GetAllVillas()
         {
+            _logger.LogInformation("GetAllVillas was called");
             return Ok(new List<VillaDTO>
             {
                 new VillaDTO { Id = 1, Name = "Villa 1" },
