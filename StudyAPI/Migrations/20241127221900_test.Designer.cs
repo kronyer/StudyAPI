@@ -12,8 +12,8 @@ using StudyAPI.Data;
 namespace StudyAPI.Migrations
 {
     [DbContext(typeof(VillaDbContext))]
-    [Migration("20241126203742_AddVillaTable")]
-    partial class AddVillaTable
+    [Migration("20241127221900_test")]
+    partial class test
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -67,6 +67,21 @@ namespace StudyAPI.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Villas");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Amenity = "Pool",
+                            CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Details = "Villa 1 Details",
+                            ImageUrl = "https://via.placeholder.com/150",
+                            Name = "Villa 1",
+                            Occupancy = 4,
+                            Rate = 100.0,
+                            Sqft = 2000,
+                            UpdatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
+                        });
                 });
 #pragma warning restore 612, 618
         }

@@ -1,6 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using StudyAPI.Data;
+using StudyAPI.Mapping;
+using StudyAPI.Repository;
+using StudyAPI.Repository.IRepository;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,11 +15,15 @@ var builder = WebApplication.CreateBuilder(args);
 //    .CreateLogger();
 //builder.Host.UseSerilog(); Se Quiser o Serilog!
 
-builder.Services.AddControllers(options => options.ReturnHttpNotAcceptable=true).AddNewtonsoftJson().AddXmlDataContractSerializerFormatters(); //Adicionar para o patch
+builder.Services.AddControllers().AddNewtonsoftJson().AddXmlDataContractSerializerFormatters(); //Adicionar para o patch
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddDbContext<VillaDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddScoped<IVillaRepository, VillaRepository>();
+builder.Services.AddScoped<IVillaNumberRepository, VillaNumberRepository>();
+builder.Services.AddAutoMapper(typeof(MappingProfile));
+
 
 var app = builder.Build();
 

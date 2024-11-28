@@ -12,38 +12,35 @@ namespace StudyAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class VillaAPIController : ControllerBase
+    public class VillaNumberAPIController : ControllerBase
     {
-        public ILogger<VillaAPIController> _logger { get; }
         protected APIResponse _apiResponse;
         private readonly IMapper _mapper;
+        private readonly IVillaNumberRepository _dbVillaNo;
         private readonly IVillaRepository _dbVilla;
 
-        public VillaAPIController(ILogger<VillaAPIController> logger, IVillaRepository dbVilla, IMapper mapper)
+        public VillaNumberAPIController(IVillaNumberRepository dbVillaNo, IMapper mapper, IVillaRepository villa)
         {
-            _logger = logger;
-            _dbVilla = dbVilla;
+            _dbVillaNo = dbVillaNo;
             _mapper = mapper;
+            _dbVilla = villa;
             this._apiResponse = new APIResponse(); // Pode ser nos moldes de DI
         }
 
 
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        public async Task<ActionResult<APIResponse>> GetAllVillas()
+        public async Task<ActionResult<APIResponse>> GetAllVillasNo()
         {
             try
             {
-                _logger.LogInformation("GetAllVillas was called");
-
-                IEnumerable<Villa> villas = await _dbVilla.GetAllAsync();
-                _apiResponse.Response = _mapper.Map<IEnumerable<VillaDTO>>(villas);
+                IEnumerable<VillaNumber> villasNo = await _dbVillaNo.GetAllAsync();
+                _apiResponse.Response = _mapper.Map<IEnumerable<VillaNumberDTO>>(villasNo);
                 _apiResponse.StatusCode = System.Net.HttpStatusCode.OK;
                 return Ok(_apiResponse);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "GetAllVillas was called");
                 _apiResponse.StatusCode = System.Net.HttpStatusCode.InternalServerError;
                 _apiResponse.IsSuccess = false;
                 _apiResponse.ErrorMessages = new List<string>()
@@ -55,7 +52,7 @@ namespace StudyAPI.Controllers
 
         }
 
-        [HttpGet("{id:int}", Name = "GetVilla")]
+        [HttpGet("{id:int}", Name = "GetVillaNo")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         //Cadastrar os tipos de respostas que a API pode retornar
@@ -71,7 +68,7 @@ namespace StudyAPI.Controllers
 
                 }
 
-                Villa villa = await _dbVilla.GetAsync(i => i.Id == id);
+                VillaNumber villa = await _dbVillaNo.GetAsync(i => i.VillaNo == id);
                 if (villa == null)
                 {
                     _apiResponse.StatusCode = System.Net.HttpStatusCode.BadRequest;
@@ -80,13 +77,12 @@ namespace StudyAPI.Controllers
                     return BadRequest(_apiResponse);
                 }
 
-                _apiResponse.Response = _mapper.Map<VillaDTO>(villa);
+                _apiResponse.Response = _mapper.Map<VillaNumberDTO>(villa);
                 _apiResponse.StatusCode = System.Net.HttpStatusCode.OK;
                 return Ok(_apiResponse);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "GetVilla was called");
                 _apiResponse.StatusCode = System.Net.HttpStatusCode.InternalServerError;
                 _apiResponse.IsSuccess = false;
                 _apiResponse.ErrorMessages = new List<string>()
@@ -101,15 +97,20 @@ namespace StudyAPI.Controllers
         [HttpPost]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<ActionResult<APIResponse>> CreateVilla([FromBody] VillaCreateDTO villaDto)
+        public async Task<ActionResult<APIResponse>> CreateVillaNo([FromBody] VillaNumberCreateDTO villaDto)
         {
             try
             {
-                if (await _dbVilla.GetAsync(i => i.Name == villaDto.Name) != null || !ModelState.IsValid) //Custom validation
+                if (await _dbVillaNo.GetAsync(i => i.VillaNo == villaDto.VillaNo) != null)
                 {
-                    _apiResponse.StatusCode = System.Net.HttpStatusCode.BadRequest;
-                    _apiResponse.IsSuccess = false;
-                    return BadRequest(_apiResponse);
+                    ModelState.AddModelError("", "Villa Number already exists");
+                    return BadRequest(ModelState);
+                }
+
+                if (await _dbVilla.GetAsync(i => i.Id == villaDto.VillaId) == null)
+                {
+                    ModelState.AddModelError("", "Villa does not exist");
+                    return BadRequest(ModelState);
                 }
 
                 if (villaDto == null)
@@ -119,18 +120,17 @@ namespace StudyAPI.Controllers
                     return BadRequest(_apiResponse);
                 }
 
-                Villa model = _mapper.Map<Villa>(villaDto);
+                VillaNumber model = _mapper.Map<VillaNumber>(villaDto);
 
-                await _dbVilla.CreateAsync(model); // precisa ser mapeado para o modelo
+                await _dbVillaNo.CreateAsync(model); // precisa ser mapeado para o modelo
                                                    //O id aqui vai estar disponivel graças ao tracking do EF no model
-                _apiResponse.Response = _mapper.Map<VillaDTO>(model);
+                _apiResponse.Response = _mapper.Map<VillaNumberDTO>(model);
                 _apiResponse.StatusCode = System.Net.HttpStatusCode.Created;
-                return CreatedAtRoute("GetVilla", new { id = model.Id }, _apiResponse);
+                return CreatedAtRoute("GetVillaNo", new { id = model.VillaNo }, _apiResponse);
                 //return CreatedAtAction(nameof(GetVilla), new { id = villa.Id }, villa);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "CreateVilla was called");
                 _apiResponse.StatusCode = System.Net.HttpStatusCode.InternalServerError;
                 _apiResponse.IsSuccess = false;
                 _apiResponse.ErrorMessages = new List<string>()
@@ -144,32 +144,27 @@ namespace StudyAPI.Controllers
         [HttpDelete("{id:int}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<ActionResult<APIResponse>> DeleteVilla(int id)
+        public async Task<ActionResult<APIResponse>> DeleteVillaNo(int id)
         {
 
             try
             {
                 if (id == 0)
                 {
-                    _apiResponse.StatusCode = System.Net.HttpStatusCode.BadRequest;
-                    _apiResponse.IsSuccess = false;
-                    return BadRequest(_apiResponse);
+                    return BadRequest();
                 }
-                var villa = await _dbVilla.GetAsync(i => i.Id == id);
-                if (villa == null)
+                var villaNo = await _dbVillaNo.GetAsync(i => i.VillaNo == id);
+                if (villaNo == null)
                 {
-                    _apiResponse.StatusCode = System.Net.HttpStatusCode.BadRequest;
-                    _apiResponse.IsSuccess = false;
-                    return BadRequest(_apiResponse);
+                    return BadRequest();
                 }
-                await _dbVilla.DeleteAsync(villa); //Nao existe removeAsync
+                await _dbVillaNo.DeleteAsync(villaNo); //Nao existe removeAsync
                 _apiResponse.StatusCode = System.Net.HttpStatusCode.NoContent;
                 _apiResponse.IsSuccess = true;
                 return Ok(_apiResponse);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "DeleteVilla was called");
                 _apiResponse.StatusCode = System.Net.HttpStatusCode.InternalServerError;
                 _apiResponse.IsSuccess = false;
                 _apiResponse.ErrorMessages = new List<string>()
@@ -180,36 +175,37 @@ namespace StudyAPI.Controllers
             }
         }
 
-        [HttpPut("{id:int}", Name = "UpdateVilla")]
+        [HttpPut("{id:int}", Name = "UpdateVillaNo")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<ActionResult<APIResponse>> UpdateVilla(int id, [FromBody] VillaUpdateDTO villaDto)
+        public async Task<ActionResult<APIResponse>> UpdateVilla(int id, [FromBody] VillaNumberUpdateDTO villaDto)
         {
             try
             {
                 if (id == 0)
                 {
-                    _apiResponse.StatusCode = System.Net.HttpStatusCode.BadRequest;
-                    _apiResponse.IsSuccess = false;
-                    return BadRequest(_apiResponse);
+                    return BadRequest();
                 }
                 if (villaDto == null || villaDto.VillaNo != id)
                 {
-                    _apiResponse.StatusCode = System.Net.HttpStatusCode.BadRequest;
-                    _apiResponse.IsSuccess = false;
-                    return BadRequest(_apiResponse);
+                    return BadRequest(villaDto);
                 }
-                Villa model = _mapper.Map<Villa>(villaDto);
+                if (await _dbVilla.GetAsync(i => i.Id == villaDto.VillaId) == null)
+                {
+                    ModelState.AddModelError("", "Villa does not exist");
+                    return BadRequest(ModelState);
+                }
+
+                VillaNumber model = _mapper.Map<VillaNumber>(villaDto);
 
 
-                await _dbVilla.UpdateAsync(model); //Update nao tem async
+                await _dbVillaNo.UpdateAsync(model); //Update nao tem async
                 _apiResponse.StatusCode = System.Net.HttpStatusCode.NoContent;
                 _apiResponse.IsSuccess = true;
                 return Ok(_apiResponse);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "UpdateVilla was called");
                 _apiResponse.StatusCode = System.Net.HttpStatusCode.InternalServerError;
                 _apiResponse.IsSuccess = false;
                 _apiResponse.ErrorMessages = new List<string>()
@@ -220,20 +216,18 @@ namespace StudyAPI.Controllers
             }
         }
 
-        [HttpPatch("{id:int}", Name = "UpdatePartialVilla")]
+        [HttpPatch("{id:int}", Name = "UpdatePartialVillaNo")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<ActionResult> UpdatePartialVilla(int id, JsonPatchDocument<VillaUpdateDTO> patchDto)
+        public async Task<ActionResult> UpdatePartialVillaNo(int id, JsonPatchDocument<VillaNumberUpdateDTO> patchDto)
         {
             try
             {
                 if (patchDto == null || id == 0)
                 {
-                    _apiResponse.StatusCode = System.Net.HttpStatusCode.BadRequest;
-                    _apiResponse.IsSuccess = false;
-                    return BadRequest(_apiResponse);
+                    return BadRequest();
                 }
-                var villa = await _dbVilla.GetAsync(i => i.Id == id, tracked: false);
+                var villa = await _dbVillaNo.GetAsync(i => i.VillaNo == id, tracked: false);
                 // EntityFramework dá tracking no modelo e se confunde com outro modelo que está sendo alterado
                 // Por isso se adiciona o AsNoTracking para não dar tracking no modelo
                 if (villa == null)
@@ -246,15 +240,15 @@ namespace StudyAPI.Controllers
 
                 //isso aqui tambén funciona legal
 
-                VillaUpdateDTO villaUpdateDTO = _mapper.Map<VillaUpdateDTO>(villa);
+                VillaNumberUpdateDTO villaUpdateDTO = _mapper.Map<VillaNumberUpdateDTO>(villa);
 
 
 
                 patchDto.ApplyTo(villaUpdateDTO, ModelState);
 
-                Villa model = _mapper.Map<Villa>(villaUpdateDTO);
+                VillaNumber model = _mapper.Map<VillaNumber>(villaUpdateDTO);
 
-                await _dbVilla.UpdateAsync(model);
+                await _dbVillaNo.UpdateAsync(model);
 
                 if (!ModelState.IsValid)
                 {
@@ -268,7 +262,6 @@ namespace StudyAPI.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "UpdatePartialVilla was called");
                 return StatusCode(500, "Internal Server Error");
 
             }
