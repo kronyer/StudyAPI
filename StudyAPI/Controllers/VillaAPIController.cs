@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
@@ -29,6 +30,7 @@ namespace StudyAPI.Controllers
 
 
         [HttpGet]
+        [Authorize] //metodo autorizado
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<ActionResult<APIResponse>> GetAllVillas()
         {
@@ -101,6 +103,7 @@ namespace StudyAPI.Controllers
         [HttpPost]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [Authorize(Roles ="adm")] //metodo autorizado com ROLE!, precisa do UseAuthentication() na program
         public async Task<ActionResult<APIResponse>> CreateVilla([FromBody] VillaCreateDTO villaDto)
         {
             try
@@ -193,7 +196,7 @@ namespace StudyAPI.Controllers
                     _apiResponse.IsSuccess = false;
                     return BadRequest(_apiResponse);
                 }
-                if (villaDto == null || villaDto.VillaNo != id)
+                if (villaDto == null || villaDto.Id != id)
                 {
                     _apiResponse.StatusCode = System.Net.HttpStatusCode.BadRequest;
                     _apiResponse.IsSuccess = false;

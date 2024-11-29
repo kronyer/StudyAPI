@@ -8,6 +8,7 @@ namespace StudyAPI.Data
         public VillaDbContext(DbContextOptions<VillaDbContext> options) : base(options)
         {
         }
+        public DbSet<LocalUser  > Users{ get; set; } 
         public DbSet<Villa> Villas { get; set; } //Sera o nome da tabela
         public DbSet<VillaNumber> VillaNumbers { get; set; } //Sera o nome da tabela
 
