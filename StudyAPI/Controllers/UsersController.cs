@@ -10,8 +10,9 @@ using StudyAPI.Repository.IRepository;
 
 namespace StudyAPI.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/v{version:ApiVersion}/[controller]")]
     [ApiController]
+    [ApiVersionNeutral] //é basico, está em qualquer tipo de versão
     public class UsersController : ControllerBase
     {
         protected APIResponse _apiResponse;

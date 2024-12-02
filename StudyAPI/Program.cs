@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -49,7 +50,25 @@ builder.Services.AddSwaggerGen(opt =>
             new List<string>() // Add this line to provide the required 'value' parameter
         }
     });
+    opt.SwaggerDoc("v1", new OpenApiInfo { Title = "StudyAPI", Version = "v1.0" }); // Documentação para o select de versai
+    opt.SwaggerDoc("v2", new OpenApiInfo { Title = "StudyAPI", Version = "v2.0" }); // Documentação para o select de versai
 });
+
+builder.Services.AddApiVersioning(opt =>
+{
+    opt.AssumeDefaultVersionWhenUnspecified = true;
+    opt.DefaultApiVersion = new ApiVersion(1, 0);
+    opt.ReportApiVersions = true; // para retornar os tipos suportados de versão no header de response
+}
+
+); //Versionamento
+
+builder.Services.AddVersionedApiExplorer(opt =>
+{
+    opt.GroupNameFormat = "'v'VVV";
+    opt.SubstituteApiVersionInUrl = true; // para substituir a versão na url para a default (v1 no caso), para usar outras versões =>
+}); //Versionamento
+
 
 
 builder.Services.AddDbContext<VillaDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -83,12 +102,16 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
-    //app.UseSwaggerUI(options =>
-    //{
-    //    options.SwaggerEndpoint("/openapi/v1.json", "StudyAPI v1");
-    //});
+
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "StudyAPI v1");
+        options.SwaggerEndpoint("/swagger/v2/swagger.json", "StudyAPI v2"); // para a versão 2 
+
+
+    });
 }
+
 
 app.UseHttpsRedirection();
 

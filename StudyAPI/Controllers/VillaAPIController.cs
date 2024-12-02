@@ -11,8 +11,9 @@ using StudyAPI.Repository.IRepository;
 
 namespace StudyAPI.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/v{version:ApiVersion}/[controller]")]
     [ApiController]
+    [ApiVersion("1.0")]
     public class VillaAPIController : ControllerBase
     {
         public ILogger<VillaAPIController> _logger { get; }
