@@ -13,7 +13,7 @@ using System.Text;
 
 namespace StudyAPI.Repository
 {
-    public class UserRepository : Repository<Villa>,  IUserRepository
+    public class UserRepository : IUserRepository
     {
         private readonly VillaDbContext _db;
         private readonly UserManager<VillaUser> _userManager;
@@ -21,92 +21,105 @@ namespace StudyAPI.Repository
         private string secretKey;
         private readonly IMapper _mapper;
 
-        public UserRepository(VillaDbContext db, IConfiguration configuration, UserManager<VillaUser> userManager, IMapper mapper, RoleManager<IdentityRole> roleManager) : base(db)
+        public UserRepository(VillaDbContext db, IConfiguration configuration,
+            UserManager<VillaUser> userManager, IMapper mapper, RoleManager<IdentityRole> roleManager)
         {
             _db = db;
-            secretKey = configuration.GetSection("ApiSettings:Secret").Value;
-            _userManager = userManager;
             _mapper = mapper;
+            _userManager = userManager;
+            secretKey = configuration.GetValue<string>("ApiSettings:Secret");
             _roleManager = roleManager;
         }
 
         public bool IsUniqueUser(string username)
         {
+            if (_db.VillaUsers == null)
+            {
+                throw new InvalidOperationException("Database context is not initialized.");
+            }
+
             var user = _db.VillaUsers.FirstOrDefault(x => x.UserName == username);
             if (user == null)
+            {
                 return true;
-
+            }
             return false;
         }
 
+
         public async Task<LoginResponseDTO> Login(LoginRequestDTO loginRequestDTO)
         {
-            var user = await _db.VillaUsers.FirstOrDefaultAsync(x => x.UserName.ToLower() == loginRequestDTO.Username.ToLower() );
+            var user = _db.VillaUsers
+                .FirstOrDefault(u => u.UserName.ToLower() == loginRequestDTO.UserName.ToLower());
 
             bool isValid = await _userManager.CheckPasswordAsync(user, loginRequestDTO.Password);
-            
-            if (user == null || !isValid)
+
+
+            if (user == null || isValid == false)
             {
                 return new LoginResponseDTO()
                 {
                     Token = "",
-                    User = null,
+                    User = null
                 };
             }
 
-
-
+            //if user was found generate JWT Token
             var roles = await _userManager.GetRolesAsync(user);
-            var token = new JwtSecurityTokenHandler();
+            var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.ASCII.GetBytes(secretKey);
+
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(new Claim[]
                 {
-                    new Claim(ClaimTypes.Name, user.Id.ToString()),
+                    new Claim(ClaimTypes.Name, user.UserName.ToString()),
                     new Claim(ClaimTypes.Role, roles.FirstOrDefault())
                 }),
-                Expires = DateTime.UtcNow.AddHours(1),
-                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+                Expires = DateTime.UtcNow.AddDays(7),
+                SigningCredentials = new(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
             };
 
-            var tokenObj = token.CreateToken(tokenDescriptor);
+            var token = tokenHandler.CreateToken(tokenDescriptor);
             LoginResponseDTO loginResponseDTO = new LoginResponseDTO()
             {
-                Token = token.WriteToken(tokenObj), //serializado
+                Token = tokenHandler.WriteToken(token),
                 User = _mapper.Map<UserDTO>(user),
-                Role = roles.FirstOrDefault()
+
             };
             return loginResponseDTO;
         }
 
-        public async Task<UserDTO> Register(RegistrationRequestDTO registerRequestDTO)
+        public async Task<UserDTO> Register(RegistrationRequestDTO registerationRequestDTO)
         {
             VillaUser user = new()
             {
-                UserName = registerRequestDTO.Username,
-                Email = registerRequestDTO.Username,
-                NormalizedEmail = registerRequestDTO.Username.ToUpper(),
-                Name = registerRequestDTO.Name,
+                UserName = registerationRequestDTO.UserName,
+                Email = registerationRequestDTO.UserName,
+                NormalizedEmail = registerationRequestDTO.UserName.ToUpper(),
+                Name = registerationRequestDTO.Name
             };
 
             try
             {
-                var result = await _userManager.CreateAsync(user, registerRequestDTO.Password);
+                var result = await _userManager.CreateAsync(user, registerationRequestDTO.Password);
                 if (result.Succeeded)
                 {
-                    if (!await _roleManager.RoleExistsAsync("User"))
+                    if (!_roleManager.RoleExistsAsync("admin").GetAwaiter().GetResult())
                     {
-                        await _roleManager.CreateAsync(new IdentityRole("User")); //This  is an awful pratice, you need to seed and define the roles before
+                        await _roleManager.CreateAsync(new IdentityRole("admin"));
+                        await _roleManager.CreateAsync(new IdentityRole("customer"));
                     }
-                    await _userManager.AddToRoleAsync(user, "User");
-                    var userToReturn = _db.VillaUsers.FirstOrDefault(x => x.UserName == user.UserName);
+                    await _userManager.AddToRoleAsync(user, "admin");
+                    var userToReturn = _db.VillaUsers
+                        .FirstOrDefault(u => u.UserName == registerationRequestDTO.UserName);
                     return _mapper.Map<UserDTO>(userToReturn);
+
                 }
             }
-            catch (Exception ex)
+            catch (Exception e)
             {
-                Console.Error.WriteLine(ex.Message);
+
             }
 
             return new UserDTO();
