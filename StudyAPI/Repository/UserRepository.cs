@@ -1,4 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using AutoMapper;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using StudyAPI.Data;
 using StudyAPI.DTOs;
@@ -14,17 +16,23 @@ namespace StudyAPI.Repository
     public class UserRepository : Repository<Villa>,  IUserRepository
     {
         private readonly VillaDbContext _db;
+        private readonly UserManager<VillaUser> _userManager;
+        private readonly RoleManager<IdentityRole> _roleManager;
         private string secretKey;
+        private readonly IMapper _mapper;
 
-        public UserRepository(VillaDbContext db, IConfiguration configuration) : base(db)
+        public UserRepository(VillaDbContext db, IConfiguration configuration, UserManager<VillaUser> userManager, IMapper mapper, RoleManager<IdentityRole> roleManager) : base(db)
         {
             _db = db;
             secretKey = configuration.GetSection("ApiSettings:Secret").Value;
+            _userManager = userManager;
+            _mapper = mapper;
+            _roleManager = roleManager;
         }
 
         public bool IsUniqueUser(string username)
         {
-            var user = _db.Users.FirstOrDefault(x => x.Username == username);
+            var user = _db.VillaUsers.FirstOrDefault(x => x.UserName == username);
             if (user == null)
                 return true;
 
@@ -33,16 +41,22 @@ namespace StudyAPI.Repository
 
         public async Task<LoginResponseDTO> Login(LoginRequestDTO loginRequestDTO)
         {
-            var user = await _db.Users.FirstOrDefaultAsync(x => x.Username.ToLower() == loginRequestDTO.Username.ToLower() && x.Password == loginRequestDTO.Password);
-            if (user == null)
+            var user = await _db.VillaUsers.FirstOrDefaultAsync(x => x.UserName.ToLower() == loginRequestDTO.Username.ToLower() );
+
+            bool isValid = await _userManager.CheckPasswordAsync(user, loginRequestDTO.Password);
+            
+            if (user == null || !isValid)
             {
                 return new LoginResponseDTO()
                 {
                     Token = "",
-                    User = null
+                    User = null,
                 };
             }
 
+
+
+            var roles = await _userManager.GetRolesAsync(user);
             var token = new JwtSecurityTokenHandler();
             var key = Encoding.ASCII.GetBytes(secretKey);
             var tokenDescriptor = new SecurityTokenDescriptor
@@ -50,7 +64,7 @@ namespace StudyAPI.Repository
                 Subject = new ClaimsIdentity(new Claim[]
                 {
                     new Claim(ClaimTypes.Name, user.Id.ToString()),
-                    new Claim(ClaimTypes.Role, user.Role)
+                    new Claim(ClaimTypes.Role, roles.FirstOrDefault())
                 }),
                 Expires = DateTime.UtcNow.AddHours(1),
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
@@ -60,24 +74,42 @@ namespace StudyAPI.Repository
             LoginResponseDTO loginResponseDTO = new LoginResponseDTO()
             {
                 Token = token.WriteToken(tokenObj), //serializado
-                User = user
+                User = _mapper.Map<UserDTO>(user),
+                Role = roles.FirstOrDefault()
             };
             return loginResponseDTO;
         }
 
-        public async Task<LocalUser> Register(RegistrationRequestDTO registerRequestDTO)
+        public async Task<UserDTO> Register(RegistrationRequestDTO registerRequestDTO)
         {
-            LocalUser user = new()
+            VillaUser user = new()
             {
-                Username = registerRequestDTO.Username,
-                Password = registerRequestDTO.Password,
+                UserName = registerRequestDTO.Username,
+                Email = registerRequestDTO.Username,
+                NormalizedEmail = registerRequestDTO.Username.ToUpper(),
                 Name = registerRequestDTO.Name,
-                Role = registerRequestDTO.Role,
             };
-            _db.Users.Add(user);
-            await _db.SaveChangesAsync();
-            user.Password = "";
-             return user;
+
+            try
+            {
+                var result = await _userManager.CreateAsync(user, registerRequestDTO.Password);
+                if (result.Succeeded)
+                {
+                    if (!await _roleManager.RoleExistsAsync("User"))
+                    {
+                        await _roleManager.CreateAsync(new IdentityRole("User")); //This  is an awful pratice, you need to seed and define the roles before
+                    }
+                    await _userManager.AddToRoleAsync(user, "User");
+                    var userToReturn = _db.VillaUsers.FirstOrDefault(x => x.UserName == user.UserName);
+                    return _mapper.Map<UserDTO>(userToReturn);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(ex.Message);
+            }
+
+            return new UserDTO();
         }
     }
 }

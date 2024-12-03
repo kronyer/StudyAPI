@@ -8,6 +8,7 @@ using StudyAPI.Data;
 using StudyAPI.DTOs;
 using StudyAPI.Models;
 using StudyAPI.Repository.IRepository;
+using System.Text.Json;
 
 namespace StudyAPI.Controllers
 {
@@ -33,13 +34,34 @@ namespace StudyAPI.Controllers
         [HttpGet]
         [Authorize] //metodo autorizado
         [ProducesResponseType(StatusCodes.Status200OK)]
-        public async Task<ActionResult<APIResponse>> GetAllVillas()
+        [ResponseCache(CacheProfileName = "120SecondsDuration")] //isso só funciona no cliente!
+
+        public async Task<ActionResult<APIResponse>> GetAllVillas([FromQuery(Name ="filterOccupancy")] int? occupancy, [FromQuery] string? search, int pageSize = 0, int pageNumber = 1)
         {
             try
             {
                 _logger.LogInformation("GetAllVillas was called");
 
                 IEnumerable<Villa> villas = await _dbVilla.GetAllAsync();
+
+                if (occupancy > 0)
+                {
+                    villas = await _dbVilla.GetAllAsync(u => u.Occupancy == occupancy, pageSize:pageSize, pageNumber:pageNumber); // the filter occurs in the repository, so that's a good pratice
+                }
+                else
+                {
+                    villas = await _dbVilla.GetAllAsync(pageSize: pageSize, pageNumber: pageNumber);
+                }
+
+                if (!string.IsNullOrEmpty(search))
+                {
+                    villas = villas.Where(u => u.Amenity.ToLower().Contains(search) || u.Name.ToLower().Contains(search)); // Now here i dont think it's a good pratice to filter
+                }
+
+                Page page = new () { PageSize = pageSize, PageNumber = pageNumber,}; // The return should be Page<T>
+
+                Response.Headers.Add("X-Pagination", JsonSerializer.Serialize(page));
+
                 _apiResponse.Response = _mapper.Map<IEnumerable<VillaDTO>>(villas);
                 _apiResponse.StatusCode = System.Net.HttpStatusCode.OK;
                 return Ok(_apiResponse);
@@ -61,6 +83,7 @@ namespace StudyAPI.Controllers
         [HttpGet("{id:int}", Name = "GetVilla")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [Authorize]
         //Cadastrar os tipos de respostas que a API pode retornar
         public async Task<ActionResult<APIResponse>> GetVilla(int id)
         {

@@ -7,7 +7,7 @@ namespace StudyAPI.Repository.IRepository
     {
         bool IsUniqueUser(string username);
         Task<LoginResponseDTO> Login(LoginRequestDTO loginRequestDTO);
-        Task<LocalUser> Register(RegistrationRequestDTO registerRequestDTO);
+        Task<UserDTO> Register(RegistrationRequestDTO registerRequestDTO);
 
     }
 }

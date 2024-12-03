@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -6,6 +7,7 @@ using Microsoft.OpenApi.Models;
 using Serilog;
 using StudyAPI.Data;
 using StudyAPI.Mapping;
+using StudyAPI.Models;
 using StudyAPI.Repository;
 using StudyAPI.Repository.IRepository;
 using System.Text;
@@ -20,20 +22,29 @@ var builder = WebApplication.CreateBuilder(args);
 //    .CreateLogger();
 //builder.Host.UseSerilog(); Se Quiser o Serilog!
 
-builder.Services.AddControllers().AddNewtonsoftJson().AddXmlDataContractSerializerFormatters(); //Adicionar para o patch
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+builder.Services.AddControllers(opt =>
+{
+    opt.CacheProfiles.Add("120SecondsDuration", new CacheProfile
+    {
+        Duration = 120
+    });
+})
+.AddNewtonsoftJson()
+.AddXmlDataContractSerializerFormatters(); // Adicionar para o patch
+
 builder.Services.AddSwaggerGen(opt =>
 {
-    opt.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    opt.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "JWT Auth header using the Bearer scheme \r\n\r\n " +
-        "Enter 'Bearer' [space] and then your token in the input below. \r\n\r\n" +
-        "Example: \"Bearer 1111111\"",
-        Name = "Auth",
-        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Description = @"JWT Authorization header usando o esquema Bearer.
+                        \r\n\r\nInforme 'Bearer' [espaço] e então seu token.
+                        \r\n\r\nExemplo: 'Bearer 12345abcdef'",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
         Scheme = "Bearer"
     });
-    opt.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement()
+    opt.AddSecurityRequirement(new OpenApiSecurityRequirement()
     {
         {
             new OpenApiSecurityScheme
@@ -43,16 +54,19 @@ builder.Services.AddSwaggerGen(opt =>
                     Type = ReferenceType.SecurityScheme,
                     Id = "Bearer"
                 },
-                Scheme = "oauth2",
+                Scheme = "Bearer",
                 Name = "Bearer",
                 In = ParameterLocation.Header,
             },
-            new List<string>() // Add this line to provide the required 'value' parameter
+            new List<string>()
         }
     });
-    opt.SwaggerDoc("v1", new OpenApiInfo { Title = "StudyAPI", Version = "v1.0" }); // Documentação para o select de versai
-    opt.SwaggerDoc("v2", new OpenApiInfo { Title = "StudyAPI", Version = "v2.0" }); // Documentação para o select de versai
+    opt.SwaggerDoc("v1", new OpenApiInfo { Title = "StudyAPI", Version = "v1.0" });
+    opt.SwaggerDoc("v2", new OpenApiInfo { Title = "StudyAPI", Version = "v2.0" });
 });
+
+builder.Services.AddIdentity<VillaUser, IdentityRole>().AddEntityFrameworkStores<VillaDbContext>();
+
 
 builder.Services.AddApiVersioning(opt =>
 {
@@ -76,6 +90,7 @@ builder.Services.AddScoped<IVillaRepository, VillaRepository>();
 builder.Services.AddScoped<IVillaNumberRepository, VillaNumberRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddAutoMapper(typeof(MappingProfile));
+builder.Services.AddResponseCaching();
 
 var key = builder.Configuration.GetValue<string>("ApiSettings:Secret");
 builder.Services.AddAuthentication(x =>
@@ -94,6 +109,8 @@ builder.Services.AddAuthentication(x =>
         ValidateAudience = false,
     };
 }); //Perfil de autenticação
+
+
 
 
 var app = builder.Build();

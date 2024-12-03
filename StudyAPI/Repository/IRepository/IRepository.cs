@@ -8,7 +8,7 @@ namespace StudyAPI.Repository.IRepository
         Task CreateAsync(T entity);
         Task DeleteAsync(T entity);
         Task<T> GetAsync(Expression<Func<T, bool>> filter = null, bool tracked = true);
-        Task<IEnumerable<T>> GetAllAsync(Expression<Func<T, bool>>? filter = null);
+        Task<IEnumerable<T>> GetAllAsync(Expression<Func<T, bool>>? filter = null, int pageSize = 0, int pageNumber = 1);
         Task SaveAsync();
     }
 }
