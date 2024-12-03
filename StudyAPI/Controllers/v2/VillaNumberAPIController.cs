@@ -8,7 +8,7 @@ using StudyAPI.DTOs;
 using StudyAPI.Models;
 using StudyAPI.Repository.IRepository;
 
-namespace StudyAPI.Controllers;
+namespace StudyAPI.Controllers.v2;
 
 [Route("api/v{version:apiVersion}/[controller]")]
 [ApiController]

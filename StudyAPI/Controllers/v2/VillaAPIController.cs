@@ -1,13 +1,17 @@
 ﻿using AutoMapper;
+using Azure;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using StudyAPI.Data;
 using StudyAPI.DTOs;
+using StudyAPI.Migrations;
 using StudyAPI.Models;
 using StudyAPI.Repository.IRepository;
+using System.Net;
 using System.Text.Json;
 
 namespace StudyAPI.Controllers.v2
@@ -146,14 +150,15 @@ namespace StudyAPI.Controllers.v2
                     return BadRequest(_apiResponse);
                 }
 
-                Villa model = _mapper.Map<Villa>(villaDto);
+                Villa villa = _mapper.Map<Villa>(villaDto);
 
-                await _dbVilla.CreateAsync(model); // precisa ser mapeado para o modelo
+
+                await _dbVilla.CreateAsync(villa); // precisa ser mapeado para o modelo
                                                    //O id aqui vai estar disponivel graças ao tracking do EF no model
 
                 if(villaDto.Image != null)
                 {
-                    string fileName = model.Id.ToString() + Path.GetExtension(villaDto.Image.FileName);
+                    string fileName = villa.Id.ToString() + Path.GetExtension(villaDto.Image.FileName);
                     string folder = @"wwwroot\ProductImage\" + fileName;
 
                     var directory = Path.Combine(Directory.GetCurrentDirectory(), folder);
@@ -168,21 +173,23 @@ namespace StudyAPI.Controllers.v2
                     using (var fileStream = new FileStream(directory, FileMode.Create))
                     {
                         await villaDto.Image.CopyToAsync(fileStream);
-                    }   
+                    }
 
-                    var baseUrl = $""
+                    var baseUrl = $"{HttpContext.Request.Scheme}://{HttpContext.Request.Host.Value}{HttpContext.Request.PathBase.Value}";
+                    villaDto.ImageUrl = baseUrl + "/ProductImage/" + fileName;
+                    villaDto.ImageLocalPath= baseUrl + "/ProductImage/" + fileName;
                 }
                 else
                 {
-                    model.ImageUrl = "https://placehold.co/600x400";
+                    villa.ImageUrl = "https://placehold.co/600x400";
                 }
 
 
 
-                _apiResponse.Response = _mapper.Map<VillaDTO>(model);
-                _apiResponse.StatusCode = System.Net.HttpStatusCode.Created;
-                return CreatedAtRoute("GetVilla", new { id = model.Id }, _apiResponse);
-                //return CreatedAtAction(nameof(GetVilla), new { id = villa.Id }, villa);
+                await _dbVilla.UpdateAsync(villa);
+                _apiResponse.Response = _mapper.Map<VillaDTO>(villa);
+                _apiResponse.StatusCode = HttpStatusCode.Created;
+                return CreatedAtRoute("GetVilla", new { id = villa.Id }, _apiResponse);
             }
             catch (Exception ex)
             {
@@ -239,41 +246,62 @@ namespace StudyAPI.Controllers.v2
         [HttpPut("{id:int}", Name = "UpdateVilla")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<ActionResult<APIResponse>> UpdateVilla(int id, [FromBody] VillaUpdateDTO villaDto)
+        public async Task<ActionResult<APIResponse>> UpdateVilla(int id, [FromForm] VillaUpdateDTO updateDTO)
         {
             try
             {
-                if (id == 0)
+                if (updateDTO == null || id != updateDTO.Id)
                 {
-                    _apiResponse.StatusCode = System.Net.HttpStatusCode.BadRequest;
-                    _apiResponse.IsSuccess = false;
-                    return BadRequest(_apiResponse);
+                    return BadRequest();
                 }
-                if (villaDto == null || villaDto.Id != id)
+
+                Villa model = _mapper.Map<Villa>(updateDTO);
+                if (updateDTO.Image != null)
                 {
-                    _apiResponse.StatusCode = System.Net.HttpStatusCode.BadRequest;
-                    _apiResponse.IsSuccess = false;
-                    return BadRequest(_apiResponse);
+                    if (!string.IsNullOrEmpty(model.ImageLocalPath))
+                    {
+                        var oldFilePathDirectory = Path.Combine(Directory.GetCurrentDirectory(), model.ImageLocalPath);
+                        FileInfo file = new FileInfo(oldFilePathDirectory);
+
+                        if (file.Exists)
+                        {
+                            file.Delete();
+                        }
+                    }
+
+                    string fileName = updateDTO.Id + Path.GetExtension(updateDTO.Image.FileName);
+                    string filePath = @"wwwroot\ProductImage\" + fileName;
+
+                    var directoryLocation = Path.Combine(Directory.GetCurrentDirectory(), filePath);
+
+                    using (var fileStream = new FileStream(directoryLocation, FileMode.Create))
+                    {
+                        updateDTO.Image.CopyTo(fileStream);
+                    }
+
+                    var baseUrl = $"{HttpContext.Request.Scheme}://{HttpContext.Request.Host.Value}{HttpContext.Request.PathBase.Value}";
+                    model.ImageUrl = baseUrl + "/ProductImage/" + fileName;
+                    model.ImageLocalPath = filePath;
+
                 }
-                Villa model = _mapper.Map<Villa>(villaDto);
+                else
+                {
+                    model.ImageUrl = "https://placehold.co/600x400";
+                }
 
 
-                await _dbVilla.UpdateAsync(model); //Update nao tem async
-                _apiResponse.StatusCode = System.Net.HttpStatusCode.NoContent;
+                await _dbVilla.UpdateAsync(model);
+                _apiResponse.StatusCode = HttpStatusCode.NoContent;
                 _apiResponse.IsSuccess = true;
                 return Ok(_apiResponse);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "UpdateVilla was called");
-                _apiResponse.StatusCode = System.Net.HttpStatusCode.InternalServerError;
                 _apiResponse.IsSuccess = false;
-                _apiResponse.ErrorMessages = new List<string>()
-                {
-                    ex.ToString()
-                };
-                return _apiResponse;
+                _apiResponse.ErrorMessages
+                     = new List<string>() { ex.ToString() };
             }
+            return _apiResponse;
         }
 
         [HttpPatch("{id:int}", Name = "UpdatePartialVilla")]
