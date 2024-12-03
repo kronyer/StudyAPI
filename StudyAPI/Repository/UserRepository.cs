@@ -47,7 +47,7 @@ namespace StudyAPI.Repository
         }
 
 
-        public async Task<LoginResponseDTO> Login(LoginRequestDTO loginRequestDTO)
+        public async Task<TokenDTO> Login(LoginRequestDTO loginRequestDTO)
         {
             var user = _db.VillaUsers
                 .FirstOrDefault(u => u.UserName.ToLower() == loginRequestDTO.UserName.ToLower());
@@ -57,10 +57,9 @@ namespace StudyAPI.Repository
 
             if (user == null || isValid == false)
             {
-                return new LoginResponseDTO()
+                return new TokenDTO()
                 {
                     Token = "",
-                    User = null
                 };
             }
 
@@ -81,10 +80,9 @@ namespace StudyAPI.Repository
             };
 
             var token = tokenHandler.CreateToken(tokenDescriptor);
-            LoginResponseDTO loginResponseDTO = new LoginResponseDTO()
+            TokenDTO loginResponseDTO = new TokenDTO()
             {
                 Token = tokenHandler.WriteToken(token),
-                User = _mapper.Map<UserDTO>(user),
 
             };
             return loginResponseDTO;

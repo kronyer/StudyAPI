@@ -33,8 +33,8 @@ namespace StudyAPI.Controllers
         {
             try
             {
-                var loginResponse = await _dbUser.Login(model);
-                if (loginResponse.User == null || loginResponse.Token == "")
+                var tokenDTO = await _dbUser.Login(model);
+                if (tokenDTO == null || tokenDTO.Token == "")
                 {
                     _apiResponse.StatusCode = System.Net.HttpStatusCode.BadRequest;
                     _apiResponse.IsSuccess = false;
@@ -42,7 +42,7 @@ namespace StudyAPI.Controllers
                     return BadRequest(_apiResponse);
                 }
                 _apiResponse.StatusCode = System.Net.HttpStatusCode.OK;
-                _apiResponse.Response = loginResponse;
+                _apiResponse.Response = tokenDTO;
                 _apiResponse.IsSuccess = true;
                 return Ok(_apiResponse);
 
