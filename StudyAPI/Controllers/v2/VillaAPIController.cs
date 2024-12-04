@@ -129,46 +129,59 @@ namespace StudyAPI.Controllers.v2
         }
 
         [HttpPost]
+        [Authorize(Roles = "admin")]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [Authorize(Roles ="adm")] //metodo autorizado com ROLE!, precisa do UseAuthentication() na program
-        public async Task<ActionResult<APIResponse>> CreateVilla([FromForm] VillaCreateDTO villaDto)
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<APIResponse>> CreateVilla([FromForm] VillaCreateDTO createDTO)
         {
             try
             {
-                if (await _dbVilla.GetAsync(i => i.Name == villaDto.Name) != null || !ModelState.IsValid) //Custom validation
+
+                if (await _dbVilla.GetAsync(u => u.Name.ToLower() == createDTO.Name.ToLower()) != null)
                 {
-                    _apiResponse.StatusCode = System.Net.HttpStatusCode.BadRequest;
-                    _apiResponse.IsSuccess = false;
-                    return BadRequest(_apiResponse);
+                    ModelState.AddModelError("ErrorMessages", "Villa already Exists!");
+                    return BadRequest(ModelState);
                 }
 
-                if (villaDto == null)
+                if (createDTO == null)
                 {
-                    _apiResponse.StatusCode = System.Net.HttpStatusCode.BadRequest;
-                    _apiResponse.IsSuccess = false;
-                    return BadRequest(_apiResponse);
+                    return BadRequest(createDTO);
                 }
 
+                Villa villa = _mapper.Map<Villa>(createDTO);
 
-                                                   //O id aqui vai estar disponivel graças ao tracking do EF no model
+
+                await _dbVilla.CreateAsync(villa);
+
+                if (createDTO.Image != null)
+                {
+                    string fileName = villa.Id + Path.GetExtension(createDTO.Image.FileName);
+                    string filePath = @"wwwroot\ProductImage\" + fileName;
+
+                    var directoryLocation = Path.Combine(Directory.GetCurrentDirectory(), filePath);
+
+                    FileInfo file = new FileInfo(directoryLocation);
+
+                    if (file.Exists)
+                    {
+                        file.Delete();
                     }
 
-                    using (var fileStream = new FileStream(directory, FileMode.Create))
+                    using (var fileStream = new FileStream(directoryLocation, FileMode.Create))
                     {
-                        await villaDto.Image.CopyToAsync(fileStream);
+                        createDTO.Image.CopyTo(fileStream);
                     }
 
                     var baseUrl = $"{HttpContext.Request.Scheme}://{HttpContext.Request.Host.Value}{HttpContext.Request.PathBase.Value}";
-                    villaDto.ImageUrl = baseUrl + "/ProductImage/" + fileName;
-                    villaDto.ImageLocalPath= baseUrl + "/ProductImage/" + fileName;
+                    villa.ImageUrl = baseUrl + "/ProductImage/" + fileName;
+                    villa.ImageLocalPath = filePath;
+
                 }
                 else
                 {
                     villa.ImageUrl = "https://placehold.co/600x400";
                 }
-
-
 
                 await _dbVilla.UpdateAsync(villa);
                 _apiResponse.Response = _mapper.Map<VillaDTO>(villa);
@@ -177,16 +190,13 @@ namespace StudyAPI.Controllers.v2
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "CreateVilla was called");
-                _apiResponse.StatusCode = System.Net.HttpStatusCode.InternalServerError;
                 _apiResponse.IsSuccess = false;
-                _apiResponse.ErrorMessages = new List<string>()
-                {
-                    ex.ToString()
-                };
-                return _apiResponse;
+                _apiResponse.ErrorMessages
+                     = new List<string>() { ex.ToString() };
             }
+            return _apiResponse;
         }
+
 
         [HttpDelete("{id:int}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -227,27 +237,64 @@ namespace StudyAPI.Controllers.v2
             }
         }
 
+        [Authorize(Roles = "admin")]
         [HttpPut("{id:int}", Name = "UpdateVilla")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult<APIResponse>> UpdateVilla(int id, [FromForm] VillaUpdateDTO updateDTO)
         {
             try
             {
+                if (updateDTO == null || id != updateDTO.Id)
                 {
+                    return BadRequest();
                 }
+
+                Villa model = _mapper.Map<Villa>(updateDTO);
+                if (updateDTO.Image != null)
                 {
+                    if (!string.IsNullOrEmpty(model.ImageLocalPath))
+                    {
+                        var oldFilePathDirectory = Path.Combine(Directory.GetCurrentDirectory(), model.ImageLocalPath);
+                        FileInfo file = new FileInfo(oldFilePathDirectory);
+
+                        if (file.Exists)
+                        {
+                            file.Delete();
+                        }
+                    }
+
+                    string fileName = updateDTO.Id + Path.GetExtension(updateDTO.Image.FileName);
+                    string filePath = @"wwwroot\ProductImage\" + fileName;
+
+                    var directoryLocation = Path.Combine(Directory.GetCurrentDirectory(), filePath);
+
+                    using (var fileStream = new FileStream(directoryLocation, FileMode.Create))
+                    {
+                        updateDTO.Image.CopyTo(fileStream);
+                    }
+
+                    var baseUrl = $"{HttpContext.Request.Scheme}://{HttpContext.Request.Host.Value}{HttpContext.Request.PathBase.Value}";
+                    model.ImageUrl = baseUrl + "/ProductImage/" + fileName;
+                    model.ImageLocalPath = filePath;
+
                 }
-                Villa model = _mapper.Map<Villa>(villaDto);
+                else
+                {
+                    model.ImageUrl = "https://placehold.co/600x400";
+                }
 
 
+                await _dbVilla.UpdateAsync(model);
+                _apiResponse.StatusCode = HttpStatusCode.NoContent;
                 _apiResponse.IsSuccess = true;
                 return Ok(_apiResponse);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "UpdateVilla was called");
-                _apiResponse.StatusCode = System.Net.HttpStatusCode.InternalServerError;
                 _apiResponse.IsSuccess = false;
+                _apiResponse.ErrorMessages
+                     = new List<string>() { ex.ToString() };
             }
             return _apiResponse;
         }

@@ -15,8 +15,8 @@ namespace StudyAPI.DTOs
         [Required]
         public double Rate { get; set; }
         public string? ImageUrl { get; set; }
+        public IFormFile Image { get; set; }
         public string? ImageLocalPath { get; set; }
-        public IFormFile? Image{ get; set; }
         public string Amenity { get; set; }
     }
 }

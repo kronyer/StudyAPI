@@ -12,7 +12,7 @@ namespace StudyAPI.Controllers.v2;
 
 [Route("api/v{version:apiVersion}/[controller]")]
 [ApiController]
-[ApiVersion("1.0", Deprecated = true)]
+[ApiVersion("2.0")]
 public class VillaNumberAPIController : ControllerBase
 {
     protected APIResponse _apiResponse;

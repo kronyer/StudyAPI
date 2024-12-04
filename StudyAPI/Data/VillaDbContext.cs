@@ -10,8 +10,6 @@ namespace StudyAPI.Data
         {
         }
 
-        public DbSet<VillaUser> VillaUsers { get; set; }
-        public DbSet<LocalUser> Users{ get; set; } 
         public DbSet<Villa> Villas { get; set; } //Sera o nome da tabela
         public DbSet<VillaNumber> VillaNumbers { get; set; } //Sera o nome da tabela
         public DbSet<RefreshToken> RefreshTokens { get; set; } //Sera o nome da tabela
