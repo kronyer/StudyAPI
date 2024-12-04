@@ -1,13 +1,17 @@
 ﻿using AutoMapper;
+using Azure;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using StudyAPI.Data;
 using StudyAPI.DTOs;
+using StudyAPI.Migrations;
 using StudyAPI.Models;
 using StudyAPI.Repository.IRepository;
+using System.Net;
 using System.Text.Json;
 
 namespace StudyAPI.Controllers.v2
@@ -128,7 +132,7 @@ namespace StudyAPI.Controllers.v2
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [Authorize(Roles ="adm")] //metodo autorizado com ROLE!, precisa do UseAuthentication() na program
-        public async Task<ActionResult<APIResponse>> CreateVilla([FromBody] VillaCreateDTO villaDto)
+        public async Task<ActionResult<APIResponse>> CreateVilla([FromForm] VillaCreateDTO villaDto)
         {
             try
             {
@@ -146,14 +150,30 @@ namespace StudyAPI.Controllers.v2
                     return BadRequest(_apiResponse);
                 }
 
-                Villa model = _mapper.Map<Villa>(villaDto);
 
-                await _dbVilla.CreateAsync(model); // precisa ser mapeado para o modelo
                                                    //O id aqui vai estar disponivel graças ao tracking do EF no model
-                _apiResponse.Response = _mapper.Map<VillaDTO>(model);
-                _apiResponse.StatusCode = System.Net.HttpStatusCode.Created;
-                return CreatedAtRoute("GetVilla", new { id = model.Id }, _apiResponse);
-                //return CreatedAtAction(nameof(GetVilla), new { id = villa.Id }, villa);
+                    }
+
+                    using (var fileStream = new FileStream(directory, FileMode.Create))
+                    {
+                        await villaDto.Image.CopyToAsync(fileStream);
+                    }
+
+                    var baseUrl = $"{HttpContext.Request.Scheme}://{HttpContext.Request.Host.Value}{HttpContext.Request.PathBase.Value}";
+                    villaDto.ImageUrl = baseUrl + "/ProductImage/" + fileName;
+                    villaDto.ImageLocalPath= baseUrl + "/ProductImage/" + fileName;
+                }
+                else
+                {
+                    villa.ImageUrl = "https://placehold.co/600x400";
+                }
+
+
+
+                await _dbVilla.UpdateAsync(villa);
+                _apiResponse.Response = _mapper.Map<VillaDTO>(villa);
+                _apiResponse.StatusCode = HttpStatusCode.Created;
+                return CreatedAtRoute("GetVilla", new { id = villa.Id }, _apiResponse);
             }
             catch (Exception ex)
             {
@@ -210,27 +230,16 @@ namespace StudyAPI.Controllers.v2
         [HttpPut("{id:int}", Name = "UpdateVilla")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<ActionResult<APIResponse>> UpdateVilla(int id, [FromBody] VillaUpdateDTO villaDto)
         {
             try
             {
-                if (id == 0)
                 {
-                    _apiResponse.StatusCode = System.Net.HttpStatusCode.BadRequest;
-                    _apiResponse.IsSuccess = false;
-                    return BadRequest(_apiResponse);
                 }
-                if (villaDto == null || villaDto.Id != id)
                 {
-                    _apiResponse.StatusCode = System.Net.HttpStatusCode.BadRequest;
-                    _apiResponse.IsSuccess = false;
-                    return BadRequest(_apiResponse);
                 }
                 Villa model = _mapper.Map<Villa>(villaDto);
 
 
-                await _dbVilla.UpdateAsync(model); //Update nao tem async
-                _apiResponse.StatusCode = System.Net.HttpStatusCode.NoContent;
                 _apiResponse.IsSuccess = true;
                 return Ok(_apiResponse);
             }
@@ -239,12 +248,8 @@ namespace StudyAPI.Controllers.v2
                 _logger.LogError(ex, "UpdateVilla was called");
                 _apiResponse.StatusCode = System.Net.HttpStatusCode.InternalServerError;
                 _apiResponse.IsSuccess = false;
-                _apiResponse.ErrorMessages = new List<string>()
-                {
-                    ex.ToString()
-                };
-                return _apiResponse;
             }
+            return _apiResponse;
         }
 
         [HttpPatch("{id:int}", Name = "UpdatePartialVilla")]

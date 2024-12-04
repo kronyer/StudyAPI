@@ -134,7 +134,7 @@ app.UseHttpsRedirection();
 
 app.UseAuthentication(); //usar antes de autorização, pois antes de autorizar um método, ée preciso autenticar
 app.UseAuthorization();
-
+app.UseStaticFiles();
 app.MapControllers();
 
 app.Run();
