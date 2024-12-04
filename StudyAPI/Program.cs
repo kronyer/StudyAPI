@@ -122,8 +122,8 @@ if (app.Environment.IsDevelopment())
 
     app.UseSwaggerUI(options =>
     {
+        options.SwaggerEndpoint("/swagger/v2/swagger.json", "StudyAPI v2"); // para a versão 2 . Ordem decrescente!
         options.SwaggerEndpoint("/swagger/v1/swagger.json", "StudyAPI v1");
-        options.SwaggerEndpoint("/swagger/v2/swagger.json", "StudyAPI v2"); // para a versão 2 
 
 
     });

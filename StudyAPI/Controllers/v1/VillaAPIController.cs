@@ -10,7 +10,7 @@ using StudyAPI.Models;
 using StudyAPI.Repository.IRepository;
 using System.Text.Json;
 
-namespace StudyAPI.Controllers
+namespace StudyAPI.Controllers.v1
 {
     [Route("api/v{version:ApiVersion}/[controller]")]
     [ApiController]
@@ -27,7 +27,7 @@ namespace StudyAPI.Controllers
             _logger = logger;
             _dbVilla = dbVilla;
             _mapper = mapper;
-            this._apiResponse = new APIResponse(); // Pode ser nos moldes de DI
+            _apiResponse = new APIResponse(); // Pode ser nos moldes de DI
         }
 
 
@@ -36,7 +36,7 @@ namespace StudyAPI.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ResponseCache(CacheProfileName = "120SecondsDuration")] //isso só funciona no cliente!
 
-        public async Task<ActionResult<APIResponse>> GetAllVillas([FromQuery(Name ="filterOccupancy")] int? occupancy, [FromQuery] string? search, int pageSize = 0, int pageNumber = 1)
+        public async Task<ActionResult<APIResponse>> GetAllVillas([FromQuery(Name = "filterOccupancy")] int? occupancy, [FromQuery] string? search, int pageSize = 0, int pageNumber = 1)
         {
             try
             {
@@ -46,7 +46,7 @@ namespace StudyAPI.Controllers
 
                 if (occupancy > 0)
                 {
-                    villas = await _dbVilla.GetAllAsync(u => u.Occupancy == occupancy, pageSize:pageSize, pageNumber:pageNumber); // the filter occurs in the repository, so that's a good pratice
+                    villas = await _dbVilla.GetAllAsync(u => u.Occupancy == occupancy, pageSize: pageSize, pageNumber: pageNumber); // the filter occurs in the repository, so that's a good pratice
                 }
                 else
                 {
@@ -58,7 +58,7 @@ namespace StudyAPI.Controllers
                     villas = villas.Where(u => u.Amenity.ToLower().Contains(search) || u.Name.ToLower().Contains(search)); // Now here i dont think it's a good pratice to filter
                 }
 
-                Page page = new () { PageSize = pageSize, PageNumber = pageNumber,}; // The return should be Page<T>
+                Page page = new() { PageSize = pageSize, PageNumber = pageNumber, }; // The return should be Page<T>
 
                 Response.Headers.Add("X-Pagination", JsonSerializer.Serialize(page));
 
@@ -127,7 +127,7 @@ namespace StudyAPI.Controllers
         [HttpPost]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [Authorize(Roles ="adm")] //metodo autorizado com ROLE!, precisa do UseAuthentication() na program
+        [Authorize(Roles = "adm")] //metodo autorizado com ROLE!, precisa do UseAuthentication() na program
         public async Task<ActionResult<APIResponse>> CreateVilla([FromBody] VillaCreateDTO villaDto)
         {
             try

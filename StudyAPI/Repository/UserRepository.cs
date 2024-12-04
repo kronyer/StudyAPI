@@ -41,7 +41,7 @@ namespace StudyAPI.Repository
 
         public async Task<LoginResponseDTO> Login(LoginRequestDTO loginRequestDTO)
         {
-            var user = await _db.VillaUsers.FirstOrDefaultAsync(x => x.UserName.ToLower() == loginRequestDTO.Username.ToLower() );
+            var user = await _db.VillaUsers.FirstOrDefaultAsync(x => x.UserName.ToLower() == loginRequestDTO.UserName.ToLower() );
 
             bool isValid = await _userManager.CheckPasswordAsync(user, loginRequestDTO.Password);
             
@@ -84,9 +84,9 @@ namespace StudyAPI.Repository
         {
             VillaUser user = new()
             {
-                UserName = registerRequestDTO.Username,
-                Email = registerRequestDTO.Username,
-                NormalizedEmail = registerRequestDTO.Username.ToUpper(),
+                UserName = registerRequestDTO.UserName,
+                Email = registerRequestDTO.UserName,
+                NormalizedEmail = registerRequestDTO.UserName.ToUpper(),
                 Name = registerRequestDTO.Name,
             };
 

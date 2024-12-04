@@ -67,7 +67,7 @@ namespace StudyAPI.Controllers
         {
             try
             {
-                bool isUserNameUnique = _dbUser.IsUniqueUser(model.Username);
+                bool isUserNameUnique = _dbUser.IsUniqueUser(model.UserName);
                 if (!isUserNameUnique)
                 {
                     _apiResponse.StatusCode = System.Net.HttpStatusCode.BadRequest;
