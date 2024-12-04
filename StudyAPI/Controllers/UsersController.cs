@@ -34,7 +34,7 @@ namespace StudyAPI.Controllers
             try
             {
                 var tokenDTO = await _dbUser.Login(model);
-                if (tokenDTO == null || tokenDTO.Token == "")
+                if (tokenDTO == null || tokenDTO.AccessToken == "")
                 {
                     _apiResponse.StatusCode = System.Net.HttpStatusCode.BadRequest;
                     _apiResponse.IsSuccess = false;
@@ -75,6 +75,69 @@ namespace StudyAPI.Controllers
                     _apiResponse.ErrorMessages.Add("User already exists");
                     return BadRequest(_apiResponse);
                 }
+
+                var user = await _dbUser.Register(model);
+
+                if (user == null)
+                {
+                    _apiResponse.StatusCode = System.Net.HttpStatusCode.BadRequest;
+                    _apiResponse.IsSuccess = false;
+                    _apiResponse.ErrorMessages.Add("Registration failed");
+                    return BadRequest(_apiResponse);
+                }
+
+                _apiResponse.StatusCode = System.Net.HttpStatusCode.OK;
+                _apiResponse.IsSuccess = true;
+                return Ok(_apiResponse);
+
+            }
+            catch (Exception ex)
+            {
+                _apiResponse.StatusCode = System.Net.HttpStatusCode.InternalServerError;
+                _apiResponse.IsSuccess = false;
+                _apiResponse.ErrorMessages = new List<string>()
+                    {
+                        ex.ToString()
+                    };
+                return StatusCode(StatusCodes.Status500InternalServerError, _apiResponse);
+
+            }
+        }
+
+        [HttpPost("refresh")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> GetNewTokenFromRefreshToken([FromBody] TokenDTO tokenDto )
+        {
+            try
+            {
+                if (ModelState.IsValid)
+                {
+                    var tokenDtoResponse = await _dbUser.RefreshAccessToken(tokenDto);
+                    if (tokenDtoResponse == null || string.IsNullOrEmpty(tokenDtoResponse.AccessToken)
+                    {
+                        _apiResponse.StatusCode = System.Net.HttpStatusCode.BadRequest;
+                        _apiResponse.IsSuccess = false;
+                        _apiResponse.ErrorMessages.Add("Invalid Token");
+                        return BadRequest(_apiResponse);
+                    }
+                    else
+                    {
+                        _apiResponse.StatusCode = System.Net.HttpStatusCode.OK;
+                        _apiResponse.Response = tokenDto;
+                        _apiResponse.IsSuccess = true;
+                        return Ok(_apiResponse);
+                    }
+                }
+                else
+                {
+                    _apiResponse.StatusCode = System.Net.HttpStatusCode.BadRequest;
+                    _apiResponse.IsSuccess = false;
+                    _apiResponse.ErrorMessages.Add("Invalid input");
+                    return BadRequest(_apiResponse);
+                }
+
+                    
 
                 var user = await _dbUser.Register(model);
 
