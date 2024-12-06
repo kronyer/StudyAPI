@@ -159,5 +159,17 @@ namespace StudyAPI.Controllers
             _apiResponse.Response = "Invalid Input";
             return BadRequest(_apiResponse);
         }
+
+        [HttpGet("error")]
+        public async Task<IActionResult> Error()
+        {
+            throw new FileNotFoundException();
+        }
+
+        [HttpGet("imgerror")] // Fake exception trated with filters
+        public async Task<IActionResult> ImageError()
+        {
+            throw new BadImageFormatException("Fake exeption");
+        }
     }
 }

@@ -1,15 +1,19 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Newtonsoft.Json;
 using Serilog;
 using StudyAPI.Data;
+using StudyAPI.Filters;
 using StudyAPI.Mapping;
 using StudyAPI.Models;
 using StudyAPI.Repository;
 using StudyAPI.Repository.IRepository;
+using System.Net;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -28,9 +32,17 @@ builder.Services.AddControllers(opt =>
     {
         Duration = 120
     });
+    opt.Filters.Add<CustomExceptionFilter>();
 })
 .AddNewtonsoftJson()
-.AddXmlDataContractSerializerFormatters(); // Adicionar para o patch
+.AddXmlDataContractSerializerFormatters()
+.ConfigureApiBehaviorOptions(opt =>
+{
+    opt.ClientErrorMapping[StatusCodes.Status500InternalServerError] = new ClientErrorData { 
+    Link = "https://httpstatuses.com/500",
+        Title = "Internal Server Error"
+    };
+}); // Adicionar para o patch
 
 builder.Services.AddSwaggerGen(opt =>
 {
@@ -128,6 +140,7 @@ if (app.Environment.IsDevelopment())
 
     });
 }
+//app.UseExceptionHandler("/ErrorHandling/ProcessError");
 
 
 app.UseHttpsRedirection();
