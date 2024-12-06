@@ -15,6 +15,8 @@ using StudyAPI.Repository;
 using StudyAPI.Repository.IRepository;
 using System.Net;
 using System.Text;
+using StudyAPI.Extensions;
+using StudyAPI.Middlewares;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -141,6 +143,11 @@ if (app.Environment.IsDevelopment())
     });
 }
 //app.UseExceptionHandler("/ErrorHandling/ProcessError");
+
+
+//app.HandleError(app.Environment.IsDevelopment()); I can make my own middleware
+
+app.UseMiddleware<CustomExceptionMiddleware>();
 
 
 app.UseHttpsRedirection();

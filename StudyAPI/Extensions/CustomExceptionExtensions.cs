@@ -4,9 +4,9 @@ using System.Net;
 
 namespace StudyAPI.Extensions
 {
-    public class CustomExceptionExtensions
+    public static class CustomExceptionExtensions// must be static class
     {
-        public static void HandleError(IApplicationBuilder app)
+        public static void HandleError(this IApplicationBuilder app, bool isDev)
         {
             app.UseExceptionHandler(err =>
             {
@@ -17,14 +17,27 @@ namespace StudyAPI.Extensions
                     var contextFeature = context.Features.Get<IExceptionHandlerFeature>();
                     if (contextFeature != null)
                     {
-                        if (app.Environment.IsDevelopment())
+                        if (isDev)
                         {
-                            await context.Response.WriteAsync(JsonConvert.SerializeObject(new
+                            if (contextFeature.Error is BadImageFormatException badImageExp)
                             {
-                                StatusCodeContext = context.Response.StatusCode,
-                                ErrorMessage = contextFeature.Error.Message,
-                                StackTrace = contextFeature.Error.StackTrace,
-                            }));
+                                await context.Response.WriteAsync(JsonConvert.SerializeObject(new
+                                {
+                                    StatusCodeContext = 404,
+                                    ErrorMessage = "This is a custom logic",
+                                    StackTrace = contextFeature.Error.StackTrace,
+                                }));
+                            }
+                            else
+                            {
+                                await context.Response.WriteAsync(JsonConvert.SerializeObject(new
+                                {
+                                    StatusCodeContext = context.Response.StatusCode,
+                                    ErrorMessage = contextFeature.Error.Message,
+                                    StackTrace = contextFeature.Error.StackTrace,
+                                }));
+                            }
+                           
                         }
                         else
                         {
